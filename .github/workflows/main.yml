@@ -67,7 +67,7 @@ jobs:
           sudo systemctl start docker
           sudo systemctl enable docker
           # Add current user to docker group
-          sudo usermod -aG docker $USER && newgrp docker
+          sudo usermod -aG docker ubuntu && newgrp docker
         else
           echo "Docker is already installed."
         fi

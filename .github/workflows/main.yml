@@ -1,0 +1,135 @@
+# Complete CI/CD Pipeline for Auth-Sys with Helm Chart
+name: Build, Package, and Deploy
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+        - dev
+        - staging
+        - prod
+
+env:
+  DOCKER_REGISTRY: docker.io
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  S3_BUCKET: ${{ secrets.S3_BUCKET_NAME }}
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+
+jobs:
+  # Job 0: Setup Infrastructure on Self-Hosted Runner
+  setup-runner:
+    runs-on: self-hosted
+    outputs:
+      runner-ready: ${{ steps.setup-complete.outputs.ready }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Update system packages
+      run: |
+        sudo apt-get update
+        sudo apt-get upgrade -y
+
+    - name: Install Docker
+      run: |
+        # Remove old Docker versions
+        sudo apt-get remove -y docker docker-engine docker.io containerd runc || true
+        
+        # Install dependencies
+        sudo apt-get install -y \
+          ca-certificates \
+          curl \
+          gnupg \
+          lsb-release
+
+        # Add Docker GPG key
+        sudo mkdir -p /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+        # Add Docker repository
+        echo \
+          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+          $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+        # Install Docker
+        sudo apt-get update
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+        # Start and enable Docker
+        sudo systemctl start docker
+        sudo systemctl enable docker
+
+        # Add current user to docker group
+        sudo usermod -aG docker $USER
+
+        # Verify installation
+        docker --version
+
+    - name: Install kubectl
+      run: |
+        # Download kubectl
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        
+        # Make executable and move to PATH
+        chmod +x kubectl
+        sudo mv kubectl /usr/local/bin/
+
+        # Verify installation
+        kubectl version --client
+
+    - name: Install Minikube
+      run: |
+        # Download Minikube
+        curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        
+        # Install Minikube
+        sudo install minikube-linux-amd64 /usr/local/bin/minikube
+        
+        # Verify installation
+        minikube version
+
+    - name: Install Helm
+      run: |
+        # Download Helm installer
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        
+        # Verify installation
+        helm version
+
+    - name: Install AWS CLI
+      run: |
+        # Install AWS CLI v2
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip
+        sudo ./aws/install --update
+        
+        # Verify installation
+        aws --version
+
+    - name: Start Minikube
+      run: |
+        # Start Minikube with Docker driver
+        minikube start --driver=docker --memory=4096 --cpus=2
+        
+        # Enable required addons
+        minikube addons enable ingress
+        minikube addons enable storage-provisioner
+        
+        # Verify cluster
+        kubectl cluster-info
+
+    - name: Setup completion
+      id: setup-complete
+      run: |
+        echo "ready=true" >> $GITHUB_OUTPUT
+        echo "✅ Runner setup completed successfully"

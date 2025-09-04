@@ -67,7 +67,7 @@ jobs:
           sudo systemctl start docker
           sudo systemctl enable docker
           # Add current user to docker group
-          sudo usermod -aG docker ubuntu && newgrp docker
+          # sudo usermod -aG docker ubuntu && newgrp docker
         else
           echo "Docker is already installed."
         fi
@@ -137,7 +137,7 @@ jobs:
         if ! minikube status | grep -q "host: Running"; then
           echo "Minikube not running. Starting Minikube..."
           # Start Minikube with Docker driver
-          minikube start --driver=docker --memory=4096 --cpus=2
+          minikube start --driver=docker --memory=2048 --cpus=2
           
           # Enable required addons
           minikube addons enable ingress

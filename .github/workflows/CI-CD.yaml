@@ -5,7 +5,7 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
-  workflow_dispatch
+  workflow_dispatch:
 
 env:
   IMAGE_NAME: rushikeshghodkedottech/authsys-helm-deployment-frontend

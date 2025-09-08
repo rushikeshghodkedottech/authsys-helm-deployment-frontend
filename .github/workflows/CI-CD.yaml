@@ -2,7 +2,7 @@ name: Frontend CI/CD
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -35,10 +35,7 @@ jobs:
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value={{date 'YYYY.MM.DD'}}-build.{{sha}}
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=branch
-            type=ref,event=pr
+            type=raw,value={{date 'YYYY.MM.DD'}}
       
       - name: Build and push
         uses: docker/build-push-action@v5
